@@ -1,0 +1,198 @@
+---
+title: "<CENTER>Reproducción del alarido del cabritus hawaianus</CENTER>"
+subtitle: "<CENTER>Tarea final - Modelos lineales</CENTER>"
+author: "<CENTER>Irene Extremera Serrano; Zuri Montalar Mendoza</CENTER>"
+date: "<CENTER>24/03/2020</CENTER>"
+editor_options:
+  chunk_output_type: console
+output: 
+  pdf_document: 
+    toc: yes
+---
+
+<div style="text-align: justify">
+
+
+```{r global_options, include=FALSE, message=FALSE,fig.align="center"}
+ knitr::opts_chunk$set(warning=FALSE)
+```
+
+## Introducción
+
+El objetivo del presente informe es describir cómo hemos ajustado un modelo de regresión lineal al alarido del *Cabritus Hawaianus*. La variable respuesta es el conjunto de datos que han conseguido y nos facilitan los paleontólogos que intentan recomponer el sonido del animal, pero se trata de un archivo con mucho ruido. Entonces, creamos un modelo lineal para predecir con él cómo sería el alarido original de la forma más fiable posible. Para ello, partimos de un conjunto de 876 covariables que han sido generadas transformando los datos mediante una serie de Fourier de las cuales la mitad tienen una correlación mayor a 0.015 (en valor absoluo) y la otra mitad, menor.
+
+A continuación se relatarán los pasos seguidos para conseguir el modelo definitivo además de los distintos problemas a los que nos hemos enfrentado en el transcurso del ajuste.
+
+## Metodología
+
+Con la finalidad de reducir el ruido presente en el archivo de sonido del *Cabritus Hawaianus* que poseen los paleontólogos consideramos las siguientes cuestiones antes de desarrollar el modelo:
+
+Por un lado, la matriz de diseño de la que partimos contiene unos 19.764 datos y 876 covariables, medidas en la misma escala, de las cuales la mitad tienen una mayor correlación con el archivo que poseen los paleontólogos (mayor a 0.015 en valor absoluto), mientras que la otra mitad contiene covariables que tienen muy poca correlación o simplemente no la tienen. Por ello,el primer aspecto a considerar fue que el modelo a emplear tendría que producir una disminución de la dimensionalidad de las covariables, pues como la mitad tienen muy poca correlación con los datos, tal vez no sea necesario utilizarlas para la estimación del modelo.
+
+Valoramos el uso de *principal components regression* (PCR) y *partial least squares* (PLS). Sin embargo, ninguna de estas dos técnicas utiliza las variables originales del modelo de regressión, sino que reducen la dimensionalidad de entre otras variables (cada una de ellas combinación lineal de las covariables originales). Pensamos que no son buenas opciones en este caso precisamente por el hecho de tener tantas covariables con muy baja correlación con los datos. Lo que nos interesa entonces es utilizar alguna técnica que permita además la selección de variables.
+
+Finalmente concluimos que la mejor estrategia de abordar el problema de la reducción de la dimensionalidad era la utilización de métodos de regresión penalizada (*shrinkage methods*), pues tienen en cuenta a la hora de seleccionar que solo algunas de las covariables tienen efecto sobre la variable respuesta. Estos métodos restringen o penalizan los parámetros del modelo de regresión, de modo que las variables que menos efecto tengan en la variable respuesta influirán poco en el modelo de regersión pues se les atribuirá coeficientes de 0 o cercanos a 0; y las que más efecto tengan en la variable respuesta presentarán coeficientes más distintos a 0 y por tanto tendrán mayor influencia en el modelo de regresión.
+
+Los dos métodos de regresión penalizada que nos planteamos utilizar fueron una regresión Ridge o una regresión Lasso, y emplearíamos finalmente el que mejor se ajustara a los datos del alarido original (que podemos contrastar en una App habilitada para ello), es decir, con el que obtiviésemos menor RMSE.
+
+Siendo que el método de mínimos cuadrados (OLS) consiste en la minimización de RSS: $RSS=\sum_{i=1}^{n}({y_i}-\hat{y_i}^2)=\sum_{i=1}^{n}(y_i-(\beta_0+\sum_{j=1}^{p}\hat{\beta_j}(x_j)_i))$.
+
+Sin embargo, la regresión Ridge consiste en la minimización de: $RSS+\lambda\sum_{j=1}^{p}\beta_j^2=RSS+\lambda||\beta||_2^2$, donde $\lambda\geq0$
+
+En el caso de utilizar la regresión Ridge, como todas las variables están medidas en las mismas unidades (todas tienen valores entre -1 y 1, pues se han creado a partir de una serie de Fourier), no sería necesario escalar las mismas. Además, para la estimación del vector $\beta$ utiliza información de los datos y asume que estos coeficientes siguen una distribución normal de media cero y varianza común.
+
+En el caso de Lasso, la solución del modelo de regresión lineal corresponde a la minimización de la siguinte expresión: $RSS+\lambda\sum_{j=1}^{p}|\beta_j|=RSS+\lambda||\beta||_1$. Este método da valores de cero a coeficientes cuya covariable no tiene mucha relevancia, lo cual hace mucho más sencilla la selección de modelos y a su vez nos es de gran interés, pues nos permite reducir la dimensionalidad y seleccionar la cantidad de covariables del modelo de regresión.
+
+
+Por otro lado, una de las opciones a considerar fue la de dividir la matriz de diseño en grupo de entrenamiento y grupo test, por lo que hicimos varios grupos de entrenamiento de distintos tamaños, en distinto orden y de forma aleatoria para comprobar qué predicciones que realizaban los modelos resultantes eran mejores. Sin embargo, teniendo en cuenta que lo que pretendemos predecir con la mayor exactitud posible no son nuestros propios datos (que tienen mucho ruido), sino los del alarido original del *Cabritus Hawaianus*, pensamos que la mejor opción era construir el modelo partiendo de todos los datos de los que disponíamos, y predecir con el modelo creado cómo serían los datos originales, esto es, no hacer distinción entre grupo de entrenamiento y grupo test.
+
+
+Otra de las consideraciones fue el uso de la validación cruzada a la hora de seleccionar el valor de $\lambda$ y la fracción de |beta| (esto es, ($||\hat{\beta_{\lambda}^L}||_1/||\hat{\beta^{OLS}}||_1$, que tiene valores entre 0 y 1) óptimas, en el caso de regresión Ridge y regresión Lasso, respectivamente (según las funciones que empleamos para ello en R): debido a que los valores del parámetro $\lambda$ para la regresión Ridge hay que introducirlos inicialmente, usamos el método de validación cruzada para seleccionar el $\lambda$ óptimo; y lo mismo ocurre con Lasso, aunque en este caso el vector a incluir previamente es el de la fracción de |beta|.
+
+En ambos casos se valoró probar modelos con una longitud inicial de esos vectores de 300 y 900 tanto en $\lambda$'s como en las fracciones de |beta| (para regresión Ridge y regresión Lasso, respectivamente) debido a que fijando los valores extremos, el aumento de longitud en esos vectores le da más posibles valores y con ello aumenta la probabilidad de que $\lambda$ y la fracción de |beta| óptimas se acerquen más a la que nos interesaría como óptima para nuestro modelo. Entonces, para comprobarlo desarrollaríamos varias pruebas con distintas longitudes.
+
+Además, otro de los aspectos que valoramos a cambiar para mejorar la calidad de las estimaciones fue la cantidad de grupos que usa validación cruzada para hacer la selección, pues al menos en el caso de la validación cruzada para la regresión Lasso, la función `cv.lars`la lleva a cabo mediante *k-fold-cross-validation*, y pensamos que tal vez aumentando el nº de grupos (de 10 a 15, por ejemplo), el valor que propone esta función como óptimo (de fracción de |beta| en este caso) sería más adecuado para nuestro modelo y por tanto tal vez podríamos hacer mejores predicciones.
+
+Sin embargo, en relación al valor óptimo de $\lambda$ y la fracción de |beta| obtenidos por validación cruzada, tenemos que el valor obtenido lo podríamos suponer óptimo para el modelo que tenemos (es decir, para los datos con ruido), pero puede no serlo para el conjunto original. Esto, junto al hecho de que la validación cruzada tiene aleatoriedad (y por tanto cada vez obtendremos un valor "óptimo" de $\lambda$ y de fracción de |beta|), nos hace pensar que no es relevante ni aumentar las longitudes de los posibles valores a probar ni la cantidad de grupos (*K*) en validación cruzada.
+
+Teniendo en cuenta todo lo anterior, decidimos que utilizaremos la validación cruzada para hacernos una idea de valores de $\lambda$ y de fracciones de |beta| que pueden serivir para crear nuestro modelo, pero no los consideramos como definitivos. Por tanto, la selección de estos parámetros es otra de las cuestiones a modificar para mejorar el modelo.
+
+
+## Resultados
+
+El modelo final ha sido obtenido mediante una sucesión de pruebas ajustando los parámetros y realizando las modificaciones anteriormente comentadas.
+
+En primer lugar, comenzamos comparando el método de Ridge y Lasso, decantándonos finalmente por Lasso debido a que sin modificar parámetros, utilizando los que validación cruzada nos indicaba como óptimos, el modelo de Lasso generaba un RMSE menor (RMSE obtenido en Lasso de 3.953,0901 frente a un 4.033,9398 obtenido por Ridge, al comparar con el original). 
+
+Una vez decidido que trabajaríamos con la regresión Lasso, valoramos el utilizar un grupo de entrenamiento y probamos tamaños del 50% y 80%, y comaparamos con el RMSE obtenido con la matriz de diseño completa (es decir, sin distinguir entre grupo train y grupo test). Los respectivos resultados fueron 4.138,5232 y 3.979,2368 frente al RMSE con el grupo completo 3.953,0901, por lo que concluimos trabajar con la matriz de diseño entera y un modelo Lasso.
+
+A continuación nos dispusimos a modificar el valor del argumento *K* para la cantidad de grupos escogidos en `cv.lars`  y la longitud del vector de la fracción de |beta|. Al incrementar la longitud de posibles valores para la fracción de |beta|, la que ofrece como óptima la validación cruzada se acerca mucho más a alguno de los valores de fracción de |beta| real que está considerando nuestro modelo, por lo que fijamos un valor elevado de 900 para la longitud de la fracción de |beta|. El RMSE correspondiente a un modelo de longitud 900 es de 3.952,6967 frente a un 3.979,2368 para una longitud de 300. Por tanto, aún tiendo en cuanta la aleatoriedad de la validación cruzada, trabajamos a partir de entonces con longitudes de posibles valores de la fracción de |beta| de 900.
+
+Sin embargo, con respecto al argumento *K*, observamos que al aumentar su valor, es decir, incrementar el número de grupos que se usan para realizar la validación cruzada, nos daba valores RMSE peores (mayores). Con 20 grupos el RMSE obtenido era de 3.952,7075 mientras que con 10 grupos el RMSE era de 3.951,4026. Podríamos valorar si esa diferencia es relevante, pero, tal como hemos comentado, el hecho de que el valor obtenido lo podríamos suponer óptimo para el modelo que tenemos (es decir, para los datos con ruido), no implica que también lo sea para el conjunto original (para los datos originales que pretendemos predecir).
+
+
+Con esto abstraímos que utilizaríamos para seguir buscando el mejor modelo, esas longitudes del vector de posibles fracciones de |beta| de 900, y 10 grupos para la validación cruzada de Lasso con `cv.lars` y, además, que la validación cruzada nos ofrecía un valor de la fracción de |beta| aproximado, similar, al óptimo del modelo que mejor se ajusta a los datos originales, por lo que valoramos fracciones de |beta| próximas a valor obtenido por validación cruzada.
+
+Por tanto, fuimos probando valores cercanos para encontrar un compromiso entre la diferencia entre la fracción óptima que elegimos (de entre las 876 posibles que creamos con la función `lars`) y la fracción que validación cruzada elige como óptima (de entre 900 posibles valores que ofrecemos); y la cantidad de covariables que elegimos que tenga en cuenta el modelo, basándonos en que al tener la mitad de covariables poco significativas, tal vez si escogemos menos variables, tenemos un modelo mejor ajustado para predecir el alarido original. En otras palabras, intentamos mejorar el ajuste del modelo buscando valores de la fracción de |beta| cercanos a los que nos ofrece validación cruzada como óptimos, pero considerando menos cantidad de variables. 
+
+Basándonos en el RMSE final obtenido, concluimos que el modelo que creamos a continuación era la mejor opción:
+
+
+Primero cargamos los datos y las librerías necesarias.
+ 
+```{r warning=FALSE,message=FALSE}
+setwd("~/BIOESTADÍSTICA máster/Modelización estadística/Modelos lineales/Tarea final-modelos lineales/para redactar cabritus")
+# setwd('D:/Desktop/Remember/Estudios/Educación Formal/Máster/Máster Valencia/Bioestadística/Curso 1/20 2-6Modelización Estadística/Modelos Lineales')
+library(tuneR)
+library(lars)
+load("freq.amp.Rdata")
+load("cabritus.Rdata")
+freq.amp<-data.frame(freq.amp) 
+completo <- data.frame(freq.amp,cabritus@left) # Matriz de diseño con la variable respuesta
+```
+
+Realizamos el ajuste de Lasso mediante la función `lars` del paquete *lars*:
+
+```{r, warning=FALSE ,fig.width=13,fig.height=6}
+cabritus.lm<-lm(cabritus.left ~.,data=completo) # Modelo OLS con todas las covariables
+
+#Ajuste Lasso
+cabritus.lasso<-lars(x=as.matrix(freq.amp),y=cabritus@left)
+
+# Fracciones de |beta| para cada uno de los modelos ajustados:
+fracs <- apply(coef(cabritus.lasso), 1, 
+function(x){sum(abs(x))})/sum(abs(coef(cabritus.lasso)[-1,][length(cabritus.lasso$lambda),]))
+
+# Representación de los coeficientes para los distintos valores ajustados
+plot(log(cabritus.lasso$lambda), coef(cabritus.lasso)[-1, 1],type="l",
+     ylim= range(coef(cabritus.lm)[-1]),ylab="Coeficientes del modelo", xlab ="log(lambda)")
+for(i in 2:dim(freq.amp)[2]){
+  lines(log(cabritus.lasso$lambda), coef(cabritus.lasso)[-1, i],type="l",col=i)}
+points(rep(tail(log(cabritus.lasso$lambda), 1), 
+dim(freq.amp)[2]), coef(cabritus.lm)[-1], col = 1:dim(freq.amp)[2])
+```
+
+En el objeto *cabritus.lasso* hay tantos modelos ajustados y por tanto tantos $\lambda$'s como covariables tenemos (es decir, 876), y a cada uno de ellos le corresponde una fracción de |beta|, que quedan reflejadas en el objeto *fracs*.
+
+En el siguiente paso, utilizamos la función `cv.lars`, que realiza la validación cruzada en función del porcentaje del módulo del vector de coeficientes |beta| (respecto a dicho mismo valor para el modelo OLS), de modo que podemos determinar cuál es la fracción de |beta| que esa función nos proporciona como óptima para el modelo (de entre los 900 posibles valores que creamos el vector *fraction*, en este caso).
+
+
+```{r, warning=FALSE,fig.width=13,fig.height=5}
+fraction <- seq(1,10e-6,length = 900) # 900 valores distintos para la fracción de beta
+
+# Aplicamos validación cruzada para calcular fracciones de |beta|
+# aceptables en nuestro modelo
+cabritus.lasso.cv<-cv.lars(x=as.matrix(freq.amp), y = cabritus@left,K=10,
+  type = "lasso", index = fraction) 
+
+# fracción de |beta| para el modelo con mejor validación cruzada
+frac.opt.lasso0<-fraction[which.min(cabritus.lasso.cv$cv)]
+```
+ 
+En la gráfica anterior observamos las fracciones de |beta| (del objeto *fraction*) y el MSE correspondiente, de modo que en principio podríamos pensar que nos conviene utilizar el modelo ajustado que tenga una fracción de |beta| más similar a la que menor MSE tiene (que llamamos *frac.opt.lasso0*). Sin embargo, vemos que fracciones de |beta| alrededor de 0.65 y 1 obtienen errores similares y, además, dichos errores no son respecto a los datos del alarido original del *Cabritus Hawaianus*, los cuales no disponemos. 
+
+Tal como ya hemos comentado, pensamos entonces que tal vez obtendríamos un mejor ajuste si utilizásemos, no la fracción de |beta| que `cv.lars` nos ofrece como óptima (que además varía en cada ejecución, pues al realizar validación cruzada el algoritmo considera aleatoriedad que no hemos prefijado), sino una similar a la misma y que considere menos variables (recordemos que en la matriz de diseño, la mitad de las covariables tenían una correlación con la variable respuesta inferior a 0.015 en valor absoluto).
+
+Entonces, realizamos la predicción para todos los modelos Lasso y mediante ciertas pruebas contrastando con la App destinada para ello, tratanto de buscamos un compromiso entre lo cercana que es la fracción de |beta| que escogemos a la que inicaba como óptima `cv.lars`, y la cantidad de variables que consideramos.
+
+De entre las distintas pruebas con diferentes fracciones de |beta| hemos obtenido que el modelo que mejor predice el alarido original del dinosaurio es el que considera una fracción de |beta| de aproximadamente 0.7574, y 713 variables (es decir, 163 de las 876 variables originales tendrán coeficiente de 0), lo cual corresponde a la posición 714, esto es:
+
+```{r}
+# Predicción Lasso, para todos los modelos del lasso path
+cabritus.lasso.predi <- predict(cabritus.lasso, newx = freq.amp)
+
+# Coeficientes de los modelos
+cabritus.lasso.coef<-coef(cabritus.lasso)
+
+# Ordenamos de menor a mayor diferencias entre fracs y frac.opt.lasso0:
+# diferencias<-sort(abs(fracs-frac.opt.lasso0))
+# posiciones<-order(abs(fracs-frac.opt.lasso0))
+
+pos.lasso<-714 # 713 variables. Posición de interés
+
+# Coeficientes del modelo definitivo
+fit<-cabritus.lasso.coef[pos.lasso, ]
+
+nvar<-length(fit[fit!= 0]) #cantidad de variables que eligimos no nulas
+nvar
+
+frac.opt.lasso<-fracs[pos.lasso] # fracción de |beta| definitiva que empleamos
+frac.opt.lasso
+```
+
+
+En la siguiente gráfica podemos observar los coeficientes del modelo frente a las fracciones de |beta|, indicando cuál de ellas es la que que consideramos finalmente como óptima.
+ 
+```{r, warning=FALSE,fig.width=13,fig.height=6}
+# Representación de los coeficientes del modelo frente a |beta|
+plot(fracs, coef(cabritus.lasso)[, 1],type="l",ylim=range(coef(cabritus.lm)[-1]),
+     xlab = "fracción de |beta|", ylab = "Coeficientes del modelo")
+for(i in 2:dim(freq.amp)[2]){
+  lines(fracs, coef(cabritus.lasso)[, i], type = "l", col = i)}
+points(rep(1, dim(freq.amp)[2]), coef(cabritus.lm)[-1], col = 1:dim(freq.amp)[2])
+# Línea vertical para la fracción de |beta| considerada más adecuada
+# para el proceso de validación cruzada
+abline(v=frac.opt.lasso)
+```
+ 
+
+Los valores ajustados con Lasso considerando entonces 713 covariables son los que se encuentran en el archivo *ajustados.irene.aida.Rdata*, y el RMSE obtenido en la App es de 3948,4809.
+
+```{r}
+# Valores ajustados con Lasso para la fracción elegida
+ajustadosDef<-cabritus.lasso.predi$fit[,pos.lasso] 
+
+write.table(ajustadosDef, "ajustados.irene.aida.csv", row.names = FALSE)
+save(ajustadosDef,file="ajustados.irene.aida.Rdata")
+
+```
+  
+## Conclusiones
+
+Hemos decidido que el mejor modelo que ajusta el alarido del *Cabritus Hawaianus* es una regresión Lasso que utiliza (es decir, tiene como coeficientes no nulos) 713 de las 876 variables, obteniendo un RMSE al comparar con el alarido original de 3948,4809.
+
+Otro aspecto que cabe mencionar, es que al decidir disminuir el número de variables (más coeficientes son 0), esto hace que $||\hat{\beta_{\lambda}^L}||_1$ sea más pequeña, lo corresponde a una disminución de la fracción de |beta| (que finalmente hemos considerado óptima la de aproximadamente 0.76). Con ello estamos por tanto restringiendo más los parámetros del modelo y cogiendo $\lambda$'s más grandes.
+
+Pensamos que tal vez podríamos reducir el error todavía más y por tanto obtener un mejor modelo si redujésemos un poco más la cantidad de variables en el modelo final; o bien probando a realizar esta misma metodología de búsqueda con la regresión Ridge en lugar de descartarla desde un principio por obtener peores resultados con el valor de $\lambda$ que en su momento obtuvimos como óptimo tras la validación cruzada.
+
+

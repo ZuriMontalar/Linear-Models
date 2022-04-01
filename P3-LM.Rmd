@@ -1,0 +1,168 @@
+---
+title: 'Práctica 3: Regresión lineal simple'
+author: "Zuri Montalar"
+date: "4/3/2020"
+output: html_document
+---
+
+<div style="text-align: justify">
+
+### Tarea 1
+#### Para el banco de datos Auto de la librería ISLR, queremos estudiar el consumo de distintos vehículos, variable mpg (miles per galon). Queremos estudiar esta variable en función de su potencia, variable horsepower. Para ello llevaremos a cabo un modelo de regresión lineal simple.
+
+```{r fvs}
+library(ISLR)
+datos<-Auto
+```
+
+#### • Evalua la existencia de relación lineal entre ambas variables ¿Encuentras evidencia de que pudiera tener sentido resumir la relación entre ambas variables de forma lineal?
+```{r aa}
+with(datos,cor.test(mpg,horsepower))
+```
+
+Tenemos p-valor del test de correlaciones de casi 0, por lo que rechazamos la hipotesis nula de que la correlacion es cero, de hecho, tenemos una correlación de -0.78, que es muy fuerte y negativa, por lo que al aumentar una variable, disminuye la otra.
+
+Así que sí, encontramos evidencia de que pudiera tener sentido resumir la relación entre ambas variables de forma lineal.
+
+
+#### • Ajusta la recta de regresión necesaria para resumir la relación entra ambas variables.
+```{r bb}
+modelo<-lm(mpg~horsepower,data=datos)
+summary(modelo)
+```
+
+
+#### • Representa gráficamente la relación entre ambas variables y la recta de regresión que has ajustado.
+```{r cc}
+plot(datos$horsepower,datos$mpg)
+abline(modelo$coefficients[1],modelo$coefficients[2],col="red")
+```
+
+
+#### • ¿Es la relación entre la variable y la respuesta positiva o negativa? 
+Relación negativa
+
+#### • ¿Encuentras que la relación entre ambas variables es significativa(mente distinta de 0)? Halla un intervalo de confianza al 95% para el coeficiente asociado a la potencia de los vehículos.
+Sí, es significativamente distinta de 0.
+
+```{r 95c}
+#IC95%
+confint(modelo)
+```
+
+
+#### • ¿Qué mpg predecirías para un horsepower de 98? Halla un intervalo de confianza para E(mpg|horsepower = 98) y un intervalo de predicción para el valor de mpg correspondiente a una potencia de 98 caballos.
+```{r ssss}
+#predecir un horsepower de 98
+predict(modelo,newdata=data.frame(list(horsepower=98)))
+
+#intervalo confianza para E(mpg|horsepower=98)
+predict(modelo,newdata=data.frame(list(horsepower=98)),interval="confidence")
+
+# intervalo de prediccion correspondiente
+predict(modelo,newdata=data.frame(list(horsepower=98)),interval="prediction")
+
+```
+
+
+#### • Representa la nube de puntos junto a la recta de regresión que has ajustado, así como un intervalo de confianza para dicha recta y un intervalo de predicción para el rango de valores de la variable horsepower.
+```{r rep}
+nuevo.horse<-data.frame(list(horsepower=45:250))
+
+IC95<-data.frame(predict(modelo,newdata=nuevo.horse,interval="confidence"))
+prediccion<-data.frame(predict(modelo,newdata=nuevo.horse,interval="prediction"))
+
+plot(datos$horsepower,datos$mpg)
+abline(modelo$coefficients[1],modelo$coefficients[2],col="red")
+lines(nuevo.horse$horsepower,IC95$lwr,col="green",lty=2)
+lines(nuevo.horse$horsepower,IC95$upr,col="green",lty=2)
+lines(nuevo.horse$horsepower,prediccion$lwr,col="blue",lty=2)
+lines(nuevo.horse$horsepower,prediccion$upr,col="blue",lty=2)
+legend(135,43,legend=c("Recta de regresión","Banda de confianza 95%",
+                       "Banda de predicción"),col=c("red","green","blue"),lty=c(1,2,2))
+```
+
+
+### Tarea 2
+#### Repite la tarea anterior, pero utilizando el año de fabricación del vehículo (year) como variable explicativa. Valora las diferencias entre las conclusiones que extraes de ambos análisis ¿Cuál de los dos ajustes te parece más satisfactorio?
+CON YEAR
+```{r ui}
+with(datos,cor.test(mpg,year))
+```
+
+Tenemos p-valor del test de correlaciones de casi 0, por lo que rechazamos la hipotesis nula de que la correlacion es cero, de hecho, tenemos una correlacion de 0.58, que es interesante.
+
+Es positiva, por lo que al aumentar una variable, aumenta la otra. Asi que sí, encontramos evidencia de que pudiera tener sentido resumir la relación entre ambas variables de forma lineal.
+
+```{r vdsa}
+# b)
+modelo2<-lm(mpg~year,data=datos)
+summary(modelo2)
+
+# c)
+plot(datos$year,datos$mpg)
+abline(modelo2$coefficients[1],modelo2$coefficients[2],col="red")
+
+# d)
+# relacion negativa.
+
+# e)
+# si. es significativamente distinta de 0.
+
+#IC95%
+confint(modelo2)
+
+# g)
+nuevo.year<-data.frame(year=70:82)
+
+IC95.2<-data.frame(predict(modelo2,newdata=nuevo.year,interval="confidence"))
+prediccion.2<-data.frame(predict(modelo2,newdata=nuevo.year,interval="prediction"))
+
+plot(datos$year,datos$mpg)
+abline(modelo2$coefficients[1],modelo2$coefficients[2],col="red")
+lines(nuevo.year$year,IC95.2$lwr,col="green",lty=2)
+lines(nuevo.year$year,IC95.2$upr,col="green",lty=2)
+lines(nuevo.year$year,prediccion.2$lwr,col="blue",lty=2)
+lines(nuevo.year$year,prediccion.2$upr,col="blue",lty=2)
+legend(71.2,45,legend=c("Recta de regresión","Banda de confianza 95%",
+                       "Banda de predicción"),col=c("red","green","blue"),lty=c(1,2,2),cex=0.7)
+```
+
+Para saber cuál es el ajuste más satisfactorio, miramos cuál es el que tiene menor varianza residual, porque eso significa que me esta explicando más.
+ - con horsepower: Residual standard error: 4.906; Adjusted R-squared:  0.6049 
+ - con year: Residual standard error: 6.363 ; Adjusted R-squared:  0.3353
+ 
+Vemos que el de horsepower tiene menor varianza residual (y mayor r**2 ajustado) así que es mejor (es un ajuste más satisfactorio) que el de con year.
+
+
+### Tarea 3
+#### La relación lineal entre mpg y horsepower ajustada en la Tarea 1 no resulta del todo satisfactoria ya que la nube de puntos se arquea en sus extremos. En ese caso podría parecer más adecuada una relación lineal del tipo mpg ~ 1/horsepower. Crea la variable invhorsepower=1/horsepower y ajusta un modelo de regresión lineal simple para mpg empleando esta nueva variable como covariable. Representa el ajuste obtenido y valora si la transformación que has hecho de horsepower mejora dicho ajuste.
+```{r xaso}
+
+invhorsepower<-1/datos$horsepower
+modelo3<-lm(mpg~invhorsepower,data=datos)
+summary(modelo3)
+
+#IC95%
+confint(modelo3)
+
+nuevo.invhorse<-data.frame(invhorsepower=seq(0,0.025,length=20))
+
+IC95.3<-data.frame(predict(modelo3,newdata=nuevo.invhorse,interval="confidence"))
+prediccion.3<-data.frame(predict(modelo3,newdata=nuevo.invhorse,interval="prediction"))
+plot(invhorsepower,datos$mpg)
+abline(modelo3$coefficients,col="red")
+lines(nuevo.invhorse$invhorsepower,IC95.3$lwr,col="green",lty=2)
+lines(nuevo.invhorse$invhorsepower,IC95.3$upr,col="green",lty=2)
+lines(nuevo.invhorse$invhorsepower,prediccion.3$lwr,col="blue",lty=2)
+lines(nuevo.invhorse$invhorsepower,prediccion.3$upr,col="blue",lty=2)
+legend(0.004,47,legend=c("Recta de regresión","Banda de confianza 95%",
+                         "Banda de predicción"),col=c("red","green","blue"),lty=c(1,2,2),cex=0.7)
+```
+
+
+ - con horsepower: Residual standard error: 4.906; Adjusted R-squared:  0.6049 
+ - con 1/horsepower: Residual standard error: 4.509; Adjusted R-squared:  0.6663
+Con esto veo que mejora un poco. También lo veo porque en el plot veo que la linea se ajusta mejor a los puntos.
+
+Vemos que el de 1/horsepower tiene menor varianza residual (y mayor r**2 ajustado) así que es mejor (es un ajuste más satisfactorio) que el de con horsepower.

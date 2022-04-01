@@ -1,0 +1,92 @@
+---
+title: 'Práctica 2: Contrastes de hipótesis'
+author: "Zuri Montalar"
+date: "4/3/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+<div style="text-align: justify">
+
+### Tarea 1
+#### Retomamos la tarea 3 de la práctica anterior en la que valorábamos el porcentaje de veces en las que un intervalo de confianza contiene el verdadero valor del parámetro. En este caso vamos a hacer algo parecido pero con contrastes de hipótesis.
+#### • Genera 1000 muestras de una distribución Normal standard, cada una de ellas de tamaño 100. Para cada muestra contrasta si la media poblacional de la población de la que provienen puede ser 0. Utiliza una significación $\alpha=0.05$ para tus conclusiones.
+
+```{r un}
+n<-100 #tamaño de cada muestra
+N<-1000 # nº de muestras
+muestra<-matrix(rnorm(N*n),ncol=n) #matriz con 1000 filas y 100 columnas
+medias<-apply(muestra,1,mean)
+
+pvalores<-c()
+for (i in 1:N) pvalores[i]<-t.test(muestra[i,])$p.value
+sum(pvalores>0.05) 
+ciertos<-pvalores[pvalores>0.05]
+ciertos
+```
+
+
+#### • Utilizando los datos generados en el apartado anterior construye un histograma de los p-valores que has obtenido en ese caso ¿Que puedes decir, a partir de lo obtenido, sobre la distribución de P-valores en contrastes de hipótesis cuando la hipótesis nula es cierta?
+```{r hist}
+hist(pvalores,prob=T)
+```
+
+bajo la hipotesis nula, los p.valores se distribuyen de forma uniforme en el intervalo 0-1.
+
+#### • Repite el primer apartado de esta tarea para distribuciones Normales de media 0.05*(1:10) y desviación típica 1. Contrasta en todos esos casos si los datos pueden provenir de una distribución Normal de media 0. Por último, construye una curva con la proporción de veces que has encontrado que $\mu$ es distinto de 0 para cada uno de los valores que has considerado para la media de las muestras. Relaciona los resultados obtenidos con el error de tipo II para cada uno de los valores de la media de las muestras.
+
+```{r gfd}
+meds<-0.05*(1:10)
+pvalores2<-matrix(ncol=length(meds),nrow=N)
+for (i in 1:N) {
+  for (j in 1:length(meds))
+  pvalores2[i,j]<-t.test(muestra[i,],mu=meds[j])$p.value
+}
+
+prop<-c()
+for (l in 1:length(meds))
+  prop[l]<-sum(pvalores2[,l]<0.05)/N
+
+plot(prop,type="o") # curva de potencia
+# si la diferencia es pequeña entre tu media real y la que quieres contrastar, la pillas con facilidad (?)
+# el error de tipo II es lo inverso de eso
+tipoII<- 1-prop # el error de tipo II es aceptar H0 cuando es falsa
+```
+
+
+### Tarea 2
+#### El banco de datos glucosa disponible en glucosa.Rdata dispone de los datos de glucosa en sangre de distintos individuos con diabetes incipiente. Dichos individuos se han dividido en tres grupos, según la dieta que se le ha administrado durante el último mes: aquellos que han seguido una dieta normal, el grupo de dieta baja en carbohidratos y el grupo de dieta baja en azúcares. Vamos a querer hacer distintas comparaciones entre los grupos mencionados.
+
+Cargo los datos:
+```{r carg}
+load("C:/Users/amont/Documents/BIOESTADÍSTICA máster/Modelización estadística/Modelos lineales/Sesión 2/Glucosa.Rdata")
+```
+
+
+#### • Compara, de la forma que te parezca más oportuna, el valor medio de glucosa en sangre después de seguir la dieta (variable GDespues) entre el grupo bajo en carbohidratos y el grupo bajo en azúcares.
+```{r a}
+with(Glucosa,t.test(x=GDespues[Dieta=="Azúcares"],y=GDespues[Dieta=="H. Carbono"]))
+```
+
+las medias no son iguales
+
+#### • Compara, de la forma que te parezca más oportuna, el valor medio de glucosa en sangre después de seguir la dieta entre el grupo bajo en azúcares y el grupo sin restricciones dietéticas.
+```{r fsad}
+with(Glucosa,t.test(x=GDespues[Dieta=="Azúcares"],y=GDespues[Dieta=="Normal"]))
+
+```
+
+
+#### • Queremos ahondar ahora en más detalle en las cuestiones anteriores. Para ello plantéate, de la manera que te parezca más adecuada, si se ha producido descenso, o no, en el nivel medio de glucosa en cada uno de los grupos de individuos que hemos observado.
+
+```{r plvs}
+with(Glucosa,t.test(x=GAntes[Dieta=="Azúcares"],y=GDespues[Dieta=="Azúcares"],alternative="greater",paired=TRUE))
+with(Glucosa,t.test(x=GAntes[Dieta=="H. Carbono"],y=GDespues[Dieta=="H. Carbono"],alternative="greater",paired=TRUE))
+with(Glucosa,t.test(x=GAntes[Dieta=="Normal"],y=GDespues[Dieta=="Normal"],alternative="greater",paired=TRUE))
+
+```
+
+
+
+

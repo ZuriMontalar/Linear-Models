@@ -1,0 +1,271 @@
+---
+title: "Práctica 7: Valoración y selección de modelos de regresión"
+author: "Zuri Montalar"
+date: "02/3/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<div style="text-align: justify">
+
+Para el modelo de regresión del banco de datos ISLR::Auto lleva a cabo las sgiguientes actividades.
+
+```{r cargo}
+library(leaps)
+library(ISLR)
+Auto<-Auto
+```
+
+
+## Ejercicio 1
+#### + Valora, cuando sea necesario, la transformación de las covariables que te parezca oportuna para incluirlas en un modelo de regresión que explique mpg.
+
+```{r ej1}
+Auto$origin<-factor(Auto$origin,labels=c("Americano","Europeo","Japonés"))
+Auto$origin<-as.factor(Auto$origin)
+plot(Auto)
+```
+
+Nos fijamos en la primera fila de todos esos plots porque queremos ver la variable respuesta.
+En horsepower usaremos la inversa.
+En displacement y weight también.
+Haremos esas transformaciones de las variables explicativas porque vemos que no tienen un comportamiento lineal con la variable respuesta (mpg).
+
+## Ejercicio 2
+#### + Considera todas las variables del banco de datos Auto, salvo mpg y name, como covariables de un modelo lineal sin interacciones para explicar mpg. Selecciona las variables del modelo que estimes oportunas mediante un procedimiento de búsqueda exhaustiva de modelos. Compara los resultados obtenidos según el criterio de comparación de modelos (R2 ajustado, Cp y BIC).
+
+Tanto el método de selección del mejor conjunto de covariables (es decir, el exhaustivo), como los de por pasos, stepwise (forward, backward o híbrido con seqrep), se basan para elegir unas u otras variables para cada dimensión, aquel conjunto cuyo modelo presente el menor RSS (la diferencia es si los compara todos, como en exhaustivo; o va descartando y dejando de comparar algunos, como en los de setepwise).
+
+```{r ej2}
+# modelo<-lm(mpg~cylinders+I(1/displacement)+I(1/horsepower)+I(1/weight)+acceleration+year+origin,method="exhaustive",data=Auto)
+# library(leaps)
+
+# Exhaustivo:
+mod.optimo<-regsubsets(mpg~cylinders+I(1/displacement)+I(1/horsepower)+I(1/weight)+acceleration+year+origin,method="exhaustive",data=Auto,nvmax=8)
+sum.mod.optimo<-summary(mod.optimo)
+sum.mod.optimo
+
+c(which.max(sum.mod.optimo$adjr2),which.min(sum.mod.optimo$cp),which.min(sum.mod.optimo$bic))
+```
+
+Ponemos nvmax=8 (aunque ese es el valor por defecto) porque tenemos 7 variables, pero una es categórica  de tres categorías. Entonces esa cuanta por 3-1=2. Entonces, tengo 6 variables numéricas + 2 de la categórica = 8 variables en total.
+
+Obtengo que el que mejor (mayor) R2 ajustado tiene es considerando 6 variables; el que mejor (menor) Cp, también el de 6 variables; y el que mejor (menor) BIC el de 3 variables.
+
+Elegiría el de 6 variables: I(1/horsepower),I(1/weight), acceleration, year, originEuropeo, originJaponés.
+
+
+Hacemos plots para ver eso mejor:
+```{r plots}
+par(mfrow = c(1,3))
+plot(1:8, sum.mod.optimo$adjr2, xlab = "# Variables", main = "Coef. Det. Ajustado",
+type="b")
+abline(v = which.max(sum.mod.optimo$adjr2), col = 2)
+plot(1:8, sum.mod.optimo$cp, xlab = "# Variables", main = "Cp de Mallows",type = "b")
+abline(v=which.min(sum.mod.optimo$cp), col = 2)
+plot(1:8, sum.mod.optimo$bic, xlab = "# Variables", main = "BIC", type = "b")
+abline(v = which.min(sum.mod.optimo$bic), col = 2)
+```
+
+
+
+## Ejercicio 3
+#### + ¿Cambiaría el modelo elegido si emplearas cualquiera de los métodos stepwise introducidos en la parte teórica?
+Hago Stepwise forward, backward e híbrido:
+
+```{r ej3}
+# Stepwise forward:
+mod.op.f<-regsubsets(mpg~cylinders+I(1/displacement)+I(1/horsepower)+I(1/weight)+acceleration+year+origin,method="forward",data=Auto,nvmax=8)
+sum.mod.op.f<-summary(mod.op.f)
+sum.mod.op.f
+c(which.max(sum.mod.op.f$adjr2),which.min(sum.mod.op.f$cp),which.min(sum.mod.op.f$bic))
+
+# Stepwise backward:
+mod.op.b<-regsubsets(mpg~cylinders+I(1/displacement)+I(1/horsepower)+I(1/weight)+acceleration+year+origin,method="backward",data=Auto,nvmax=8)
+sum.mod.op.b<-summary(mod.op.b)
+sum.mod.op.b
+c(which.max(sum.mod.op.b$adjr2),which.min(sum.mod.op.b$cp),which.min(sum.mod.op.b$bic))
+
+# Stepwise hibrido:
+mod.op.h<-regsubsets(mpg~cylinders+I(1/displacement)+I(1/horsepower)+I(1/weight)+acceleration+year+origin,method="seqrep",data=Auto,nvmax=8)
+sum.mod.op.h<-summary(mod.op.h)
+sum.mod.op.h
+c(which.max(sum.mod.op.h$adjr2),which.min(sum.mod.op.h$cp),which.min(sum.mod.op.h$bic))
+```
+ 
+ Con Stepwise backward e híbrido me da igual que con exhaustivo (es decir, la misma cantidad de variables, pero no las mismas variables: 6,6,3).
+ 
+ Con stepwise forward me da 7,7,3. (para los criterios de mayor R^2 ajustado, menor Cp y menor BIC respectivamente).
+
+## Ejercicio 4
+#### + ¿Es anidado el conjunto de modelos devuelto por la selección exhaustiva de variables? ¿coincide dicho conjunto de modelos para alguno de los métodos stepwise implementados? ¿Qué método stepwise ofrece el conjunto de modelos más similar al ajuste exhaustivo?
+
+En este caso vemos que el modelos devuelto por la selección exhaustiva de variables NO es anidado.
+
+```{r vee}
+# hago esto para comparar con el exhaustivo
+sum.mod.optimo$which==sum.mod.op.f$which
+sum.mod.optimo$which==sum.mod.op.b$which
+sum.mod.optimo$which==sum.mod.op.h$which
+```
+
+Vemos que los modelos no coinciden exactamente en todas las variables. El más similar al ajuste exhaustivo es el stepwise backward.
+
+## Ejercicio 5
+#### + Para las variables que hayas elegido en los apartados anteriores, considera la interacción de cada una de ellas con la variable origin. Utiliza el método exhaustivo de selección de variables para evaluar qué interacciones deberías mantener en el modelo. Compara los resultados obtenidos con lo que obtendrías evaluando la introducción, una a una, de las interacciones consideradas en este apartado ¿Con qué modelo te quedarías finalmente?
+
+```{r ej5}
+# Exhaustivo con interacción:
+mod.int<-regsubsets(mpg~(I(1/horsepower)+I(1/weight)+acceleration+year)*origin,data=Auto,method="exhaustive",nvmax=14)
+sum.mod.int<-summary(mod.int)
+sum.mod.int
+
+c(which.max(sum.mod.int$adjr2),which.min(sum.mod.int$cp),which.min(sum.mod.int$bic))
+```
+
+Ponemos nvmax=14 porque la variable categórica origin, con 3 niveles, cuenta por 2 varibales. Entonces tengo las variables de:
+
+  - 1/horsepower
+  - 1/peso
+  - aceleraciñon
+  - año
+  - origen *2 (las dos interacciones con origin)
+  - 1/horsepower *2
+  - 1/peso *2
+  - aceleraciñon *2
+  - año *2
+
+En total, 14 variables
+
+
+Obtengo que el que mejor (mayor) R2 ajustado tiene es considerando 12 variables ; el que mejor (menor) Cp, también el de 12 variables; y el que mejor (menor) BIC el de 6 variables.
+
+Entonces, cuando veo con cuáles 2 de las 14 variables NO me quedaría, éstas son I(1/horsepower):originEuropeo y I(1/weight):originJaponés.
+Con ello, podría deducir que las interacciones que puede que no sean significativas son origin-(1/horsepower) y origin-year.
+
+Con la función `anova` puedo comparar LA VARIABILIDAD RESIDUAL DE dos modelos.
+Entonces, ahora miramos con la función `anova`, que comparar modelos, si las interacción 1/peso y origin es significativa; y si lo es o no también la de origin con 1/horsepower:
+
+```{r}
+mmm<-lm(mpg~(I(1/horsepower)+I(1/weight)+acceleration+year)*origin,data=Auto) # modelo original en este ejercicio
+mhh<-lm(mpg~I(1/horsepower)+(I(1/weight)+acceleration+year)*origin,data=Auto) # modelo quitando la interaccion de origin con 1/horsepower
+
+anova(mmm,mhh) #comparo, evaluo significatividad
+```
+
+Evalúo si la interacción de origin con 1/horsepower es significativa, y me sale un p-valor de 0.67 (mayor a 0.05), así que la interacción de origin con 1/horsepower NO es significativa. Entonces, quito esa interaccion, y ahora miro si la interacción con 1/peso y origin es significativa o no:
+
+
+```{r}
+mww<-lm(mpg~(acceleration+year)*origin+I(1/weight)+I(1/horsepower),data=Auto) #modelo sin interacciones de origin con 1/peso ni 1/horsepower
+anova(mhh,mww) 
+
+```
+
+Ahora obtengo un p-valor de 0.049, así que aunque por muy poco, es menor a 0.05 y por tanto considero que la interacción de origin con 1/peso sí es significativa, así que me la quedo en el modelo.
+
+(Pero aquí ojo cuidao, porque si evalúo primero la interacción de origin con 1/peso, me sale que No es significativa; y luego al quitar esa interacción y evaluar la de 1/horsepower, (aunque también por los pelos) me sale que sí es significativa. Es decir, al revés de lo que me salía. Esto se debe a que muy probablemente haya colinealidad entre las variables de peso y horsepower, y por eso haciendo estas pruebas me indican que deje una de sus interacciones con origin, pero la otra no).
+
+## Ejercicio 6
+#### + Para el modelo que hayas determinado en el apartado anterior valora la hipótesis de linealidad para todas las covariables ¿Te sugieren los resultados obtenidos alguna forma de mejorar el modelo? Si es así considera dicho modelo.
+
+
+```{r lineal}
+modeloDEFINITIVO<-mhh
+plot(modeloDEFINITIVO)
+
+```
+
+Para que se cumpla la linealidad, la media de la variable respuesta debe guardar una relación lineal con el resto de covariables del modelo.
+
+Estudiamos la linealidad:
+
+Mi modelo era este: lm(mpg~I(1/horsepower)+(I(1/weight)+acceleration+year)*origin,data=Auto).
+
+Para evaluar si hay linealidad en los residuos, representamos los residuos (en el eje y) frente a cada una de las variables (en el eje x), y miramos en cada gráfica si hay tendencia:
+
+```{r linealidad}
+plot(1/Auto$horsepower,rstandard(modeloDEFINITIVO),main="1/horsepower")
+plot(1/Auto$weight,rstandard(modeloDEFINITIVO),main="1/weight")
+plot(Auto$acceleration,rstandard(modeloDEFINITIVO),main="acceleration")
+plot(Auto$year,rstandard(modeloDEFINITIVO),main="year") 
+
+```
+
+Los plots de 1/horsepower, 1/weight,  acceleration y year parecen lineales. PERO la de AÑO parece un poco cuadrática. Así que para intentar mejorarlo, vamos a meter el AÑO^2 en el modelo, y vemos si es o no significativo:
+
+```{r}
+any.mod<-lm(mpg~I(1/horsepower)+(I(1/weight)+acceleration+I(year^2))*origin,data=Auto)
+plot(Auto$year,rstandard(any.mod),main="year")
+
+summary(any.mod) # ·p.valor de year**2 de 2e-16 . es muy significativo. nos quedamos con este modelo
+#eso no me acaba de cuadrar
+
+
+anova(modeloDEFINITIVO,any.mod) #ESTO NO HAY QUE HACERLO AQUI, PORQUE ESTO LO HAGO PARA COMPARAR UN MODELO CON Y SIN ITERACCION, Y NO ES ESTE CASO
+
+ # p.valor de year**2 de 2e-16 . es muy significativo. nos quedamos con este modelo
+summary(modeloDEFINITIVO)
+
+```
+
+
+
+## Ejercicio 7
+#### + Para el modelo que hayas determinado en el apartado anterior valora las hipótesis del modelo de regresión lineal ¿Consideras adecuado dicho modelo de regresión? ¿Encuentras algún vehículo que pudiera haber condicionado el modelo de regresión?
+
+En el apartado anterior nos quedábamos con el modelo: any.mod<-lm(mpg~I(1/horsepower)+(I(1/weight)+acceleration+I(year^2))*origin,data=Auto)
+
+Estudiamos normalidad:
+
+```{r norm}
+# normalidad
+ks.test(x=rstudent(any.mod),y="pt",df=dim(Auto)[1]-12-2) #nos sale que no es normal
+
+qqnorm(rstudent(any.mod))
+qqline(rstudent(any.mod),col="blue")
+```
+
+Obtenemos p-valor de 0.02971, por lo que comparando con nivel de significatividad de 0.05, no rechazamos la hipotesis nula; consideramos normalidad.
+
+Estudiamos la homocedasticidad
+
+```{r}
+# Homocedasticidad:
+plot(any.mod$fitted.values,rstandard(any.mod),main="Homocedasticidad") 
+abline(0,0,col="red",lty=2) #parece como un embudo, mal asunto con la homocedasticidad
+
+# hago el test levene:
+grupos<-cut(any.mod$fitted.values,quantile(any.mod$fitted.values,(0:4)/4,include.lowest=TRUE))
+lawstat::levene.test(rstandard(any.mod),grupos)
+#obtenemos p-valor de 3.301e-06, por lo que rechazamos la hipotesis de que sea homocedastico.
+
+# también podríamos hacer el test de tendencia, con la función ltrend.test
+```
+
+Mal asunto en la homocedasticidad o sea parece heterocedastico, porque vemos como un embudo o campana.
+
+*(EN LOS PLOTS DA IGUAL SI PONEMOS RESIDUOS STANDARIZADOS O STUDENTIZADOS. CUANDO HAGAMOS CONTRASTES, PONEMOS SIEMPRE LOS STUDENTIZADOS, PORQUE CONOCEMOS SU DISTRIBUCIÓN)*
+
+
+## Ejercicio 8
+#### + Finalmente, plantea qué medida propondrías para mejorar el modelo de regresión para mpg.
+
+Se suopne que ya hemos mejorado el modelo, considerando como variable, en vez de year, year^2.
+
+PERO,
+AL FINAL NO SE NOS CUMPLEN TODAS LAS HIPÓTESIS DEL MODELO :(
+ASÍ QUE NO DEBERÍAMOS DAR POR BUENO ESTE MODELO
+A LO MEJOR, EN VEZ DE IR CAMBIANDO LAS VARIABLES EXPLICATIVAS (LA INVERSA DEL PESO, DE HORSEPOWER, ETC), PODRÍAMOS PROBAR A CAMBIAR LA VARIABLE RESPUESTA (ES DECIR, CONSIDERAR 1/MPG COMO FUNCIÓN LINEAL DE HORSEPOWER, COMO FUNCIÓN LINEAL DE PESO, ETC).
+
+
+
+
+
+

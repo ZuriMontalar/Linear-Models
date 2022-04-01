@@ -1,0 +1,345 @@
+---
+title: 'Práctica 5: Validación de modelos de regresión'
+author: "Zuri Montalar"
+date: "4/3/2020"
+output: html_document
+---
+
+<div style="text-align: justify">
+
+### Tarea 1
+#### Para el modelo lineal que ajustaste en la tarea 1 de la práctica 3 (relación entre mpg y horsepower para el banco de datos Auto) valora su ajuste, validando las hipótesis del modelo de regresión una vez ajustado el modelo.
+
+```{r gsd}
+library(ISLR)
+datos<-Auto
+modelo<-lm(mpg~horsepower,data=datos)
+summary(modelo)
+
+# Validación del modelo de regresión:
+
+# Normalidad:
+  # df=2-p-2
+ks.test(x=rstudent(modelo),y="pt",df=dim(datos)[1]-1-2)
+#☺ obtenemos p-valor de 0.1118, por lo que comparando con nivel de significatividad
+# de 0.05, no rechazamos la hipotesis nula; consideramos normalidad
+
+qqnorm(rstudent(modelo))
+qqline(rstudent(modelo),col="blue")
+# con el grafico QQ parece normal
+
+
+# Homocedasticidad:
+plot(modelo$fitted.values,rstudent(modelo),main="Homocedasticidad")
+abline(0,0,col="red",lty=2)
+# mal asunto en la homocedasticidad o sea parece heterocedastico 
+
+#install.packages("lawstat")
+# hago el test levene:
+grupos<-cut(modelo$fitted.values,quantile(modelo$fitted.values,(0:4)/4,include.lowest=TRUE))
+lawstat::levene.test(rstandard(modelo),grupos)
+# obtenemos p-valor de 0.0002134, por lo que rechazamos la hipótesis de que sea homocedastico. no lo es
+
+# Linealidad:
+# lo que queremos ver es si hay o no tendencia
+plot(modelo$fitted.values,modelo$residuals,main="linealidad?")
+abline(0,0,col="red",lty=2)
+# veo que no lo ajusta bien, asi que no es lineal.
+# como no hay tendencia, no hay linealidad
+# como alternativa, le podemos meter ls covariable 1/x (1/horses)
+
+# tambien podemos hacer el ltrend.test:
+# la hipotesis nula es que no hay tendencia:
+# ltrend.test(rstandard(modelo),grupos)
+
+
+# Independencia:
+#no hago nada aqui porque esto no es una serie temporal o no se que
+
+```
+
+el ltrend.test es una alternativa al test de levene (porque el test de levenne esta obviando la ordinariedad). (para homocedasticidad)
+
+
+
+#### Repite dicha validación para el modelo de la tarea 3 en el que se asumía una relación lineal entre mpg y 1/horsepower.
+```{r vadf}
+invhorsepower<-1/datos$horsepower
+modelo3<-lm(mpg~invhorsepower,data=datos)
+# Validación:
+
+# Normalidad:
+# df=2-p-2
+ks.test(x=rstudent(modelo3),y="pt",df=dim(datos)[1]-1-2)
+#☺ obtenemos p-valor de 0.1383, por lo que comparando con nivel de significatividad
+# de 0.05, no rechazamos la hipotesis nula; consideramos normalidad
+
+qqnorm(rstudent(modelo3))
+qqline(rstudent(modelo3),col="blue")
+# con el grafico QQ parece normal
+
+
+# Homocedasticidad:
+plot(invhorsepower,rstudent(modelo3),main="Homocedasticidad")
+abline(0,0,col="red",lty=2)
+# mal asunto en la homocedasticidad o sea parece heterocedastico :(
+
+#install.packages("lawstat")
+# hago el test levene:
+grupos3<-cut(modelo3$fitted.values,
+            quantile(modelo3$fitted.values,(0:4)/4,include.lowest=TRUE))
+lawstat::levene.test(rstandard(modelo3),grupos3)
+# obtenemos p-valor de 3.915e-10, por lo que rechazamos la hipotesis de que sea homocedastico. no lo es
+
+# Linealidad:
+plot(modelo3$fitted.values,modelo3$residuals,main="linealidad?")
+abline(0,0,col="red",lty=2)
+#hora sí parece que se cumple la linealidad
+library(lawstat)
+#ltrend.test(rstandard(modelo3),grupos3)
+# sale un p-valor menor que 0.05, asiq eu rechazamos la hipotesis nula de que la tendencia sea 0. asi que rechazo linealidad
+
+# Independencia:
+
+```
+
+SI VAMOS A HACER ALGUN TEST, USAMOS LOS RESIDUOS STUDENTIZADOS PORQUE CONOCEMOS SU DISTRIBUCION
+
+PERO EN PRINCIPIO NOS TIENE QUE SALIR LO MISMO QUE CON LOS RESIDUOS ESTANDARIZADOS. O SEA QUE AL HACER LAS GRÁFICAS DA IGUAL CUÁL USEMOS.
+
+### Tarea 2
+#### El banco de datos Congenitas.Rdata contiene las defunciones por enfermedades congénitas ocurridas en España desde el año 1980 hasta 2018, en ese mismo orden. Dado el alto número de defunciones observadas durante el periodo de estudio resulta razonable tratar dicha variable como continua y modelizarla mediante un modelo de regresión lineal Normal.
+```{r fsa}
+load("C:/Users/amont/Documents/BIOESTADÍSTICA máster/Modelización estadística/Modelos lineales/Sesión 5/Congenitas.Rdata")
+summary(Congenitas)
+```
+
+
+#### • Ajusta un modelo de regresión lineal que modeliza las defunciones del banco de datos como función del año del periodo de estudio x=2:39. Considera un ajuste cuadrático de esta variable explicativa y representa el ajuste obtenido.
+```{r vdx}
+x<-1:39
+modCon<-lm(Congenitas~x)
+summary(modCon)
+#plot(modCon)
+
+modCon.cuadratico<-lm(Congenitas~poly(x,2,raw=T))
+summary(modCon.cuadratico)
+#plot(modCon.cuadratico)
+
+plot(x,Congenitas)
+#lines(x,predict(modCon.cuadratico),col="red")
+lines(x,modCon.cuadratico$fitted.values,col="blue")
+```
+
+
+#### • Evalúa la hipótesis de Normalidad para el modelo que acabas de ajustar.
+```{r normalidad}
+# normalidad:
+ks.test(x=rstudent(modCon.cuadratico),y="pt",df=length(Congenitas)-1-2)
+# obtenemos un p-valor de 0.6377, por lo que aceptamos la normalidad
+
+qqnorm(rstudent(modCon.cuadratico))
+qqline(rstudent(modCon.cuadratico),col="blue")
+```
+
+
+#### • Evalúa la hipótesis de homocedasticidad de los datos alrededor de la curva ajustada ¿a qué crees que se puede deber la heterocedasticidad de los datos?
+```{r homocedasticidad}
+ #homocedasticidad
+
+plot(x,rstudent(modCon.cuadratico),main="Homocedasticidad")
+abline(0,0,col="red",lty=2)
+#parece que es homocedastico, auqneu tengo u par de outliers cerca de x=0
+
+gruposc<-cut(modCon.cuadratico$fitted.values,
+             quantile(modCon.cuadratico$fitted.values,(0:3)/3,include.lowest=TRUE))
+lawstat::levene.test(rstandard(modCon.cuadratico),gruposc)
+```
+
+pvalor de 0.0298, por lo que NO aceptamos homocedasticidad la variable que estamos estudiando es poisson, porque son conteos.
+en variables poisson, la varianza es igual a la media. hay varianza importante en la media, por lo que debería haber varianza importante en la varianza.
+
+
+#### • ¿Consideras que los datos se distribuyen de manera independiente alrededor de la curva que has ajustado, o encuentras correlación temporal dado dicho carácter de los datos?
+
+Aquí sí que tengo como datos que podrien ser de una serie temporal equiespaciados.
+Usamos para valorar la independencia la función de autocorrelación (acf)
+
+```{r nl}
+#independencia
+acf(modCon.cuadratico$residuals)
+```
+
+Autocorrelacion de uno de los residuos con el anterior (esta es significativamente positiva. esto es que es dependiente),con dos anteriores (ya es negativo; y no son dependientes o al menos no puedes decir que sea significativamente distinta de cero), con tres anteriores,etc. Eso es la autocorrelación.
+
+Vemos mas correlacion de la que deberia. eso es indicio de que hay dependencia la primera linea es 1 porque es consigo mismo. como el segundo la segunda linea que vemos (correspondiente a ro1) es muy elevada, asÍ que hay mucha correlaciÓn entre lo que pasa en un momento y lo que paso justo en el momento anterior. Esto implica que es dependiente.
+
+
+#### • Considera un ajuste polinómico de orden superior, hasta el grado que consideres oportuno. Representa el ajuste del nuevo modelo que hayas ajustado.
+```{r ladgnl}
+# ajuste polinómico de orden superior
+plot(x,Congenitas)
+lines(x,modCon.cuadratico$fitted.values,col="blue",main="cuadrático (2)")
+
+plot(x,Congenitas)
+lines(lm(Congenitas~poly(x,3,raw=T))$fitted.values,col="red",main="cúbico (3)")
+
+plot(x,Congenitas)
+lines(lm(Congenitas~poly(x,4,raw=T))$fitted.values,col="green",main="de orden 4")
+
+plot(x,Congenitas)
+lines(lm(Congenitas~poly(x,5,raw=T))$fitted.values,col="dark red",main="de orden 5")
+
+plot(x,Congenitas)
+lines(lm(Congenitas~poly(x,6,raw=T))$fitted.values,col="orange",main="de orden 6")
+
+plot(x,Congenitas)
+lines(lm(Congenitas~poly(x,7,raw=T))$fitted.values,col="dark green",main="de orden 7")
+
+plot(x,Congenitas)
+lines(lm(Congenitas~poly(x,8,raw=T))$fitted.values,col="yellow",main="de orden 8")
+
+plot(x,Congenitas)
+lines(lm(Congenitas~poly(x,9,raw=T))$fitted.values,col="blue",main="de orden 9")
+
+ # legend(10,2300,legend=c("cuadrático (2)","cúbico (3)",
+ #                        "de orden 4","de orden 5","de orden 6","de orden 7","de orden 8","de orden 9"), col=c("blue","red","green","dark red","orange","dark green","yellow","blue"),lty=rep(1,8),cex=1)
+
+```
+
+
+### Tarea 3
+#### El banco de datos estimulos.Rdata contiene dos variables, ambas son el tiempo de respuesta del cerébro ante distintos estimulos. La variable x es el tiempo de respuesta a un sonido acompañado de un estímulo visual y la variable y es el tiempo de respuesta únicamente al estímulo visual, para una serie de 50 individuos.
+```{r vdafv}
+load("C:/Users/amont/Documents/BIOESTADÍSTICA máster/Modelización estadística/Modelos lineales/Sesión 5/estimulos.Rdata")
+```
+
+
+#### • Representa gráficamente ambas variables.
+```{r bvlihn}
+plot(estimulos)
+```
+
+
+#### • Ajusta un modelo de regresión lineal para explicar la variable y en función de x. Comprueba que la relación funcional entre ambas variables es la adecuada y que no resulta necesario incluir un polinomio de mayor grado en función de x.
+```{r cDS}
+
+modelo<-lm(y~x,data=estimulos)
+mod2<-lm(y ~ poly(x,2, raw=T), data = estimulos)
+mod3<-lm(y ~ poly(x,3, raw=T), data = estimulos)
+mod4<-lm(y ~ poly(x,4, raw=T), data = estimulos)
+
+
+plot(estimulos)
+nuevos<-data.frame(x=0:10)
+pred<-predict(modelo,newdata= nuevos)
+pred2<-predict(mod2,newdata= nuevos)
+pred3<-predict(mod3,newdata= nuevos)
+pred4<-predict(mod4,newdata= nuevos)
+
+lines(x=0:10, y=pred, col="black")
+lines(x=0:10, y=pred2, col="red")
+lines(x=0:10, y=pred3, col="blue")
+lines(x=0:10, y=pred4, col="green")
+legend(0,15,legend=c("original","cuadrático (2)","cúbico (3)",
+                         "de orden 4"),col=c("black","red","blue","green"),lty=c(1,1,1,1),cex=1)
+
+
+```
+
+Lo que vemos con los poliMoios es que no es significativo o sea igual hay un sobreajuste de los datos con los polinomios esos
+
+Numéricamente, lo podríamos ver con los p-valores (en este caso obtendríamos lo mismo con un test t que con un ANOVA). Haría el ANOVA de los modelo, y vería que me explican lo mismo, así que me quedo con el más sencillo, que es el lineal. Con la función `anova` puedo comparar LA VARIABILIDAD RESIDUAL DE dos modelos:
+
+```{r }
+# comparo modelos a ver si son significativos:
+
+anova(modelo,mod2) #p.valor de 0.367 (mayor a 0.05). asi que los modelos no son significativamente distintos. me explica lo mismo modelo que mod2
+
+anova(modelo,mod3) #p.valor de 0.6661 . igual que el anterior
+
+anova(modelo,mod4) #p.valor de 0.8453. misma conclusion
+
+```
+
+
+
+#### • Evalua la hipótesis de Normalidad para el modelo que acabas de ajustar.
+```{r normalidadds}
+#normalidad
+ks.test(x=rstudent(modelo),y="pt",df=length(estimulos$x)-1-2)
+# obtenemos un p-valor de 0.02552, por lo que rechazamos la normalidad
+
+qqnorm(rstudent(modelo)) # no parece normal
+qqline(rstudent(modelo),col="blue")
+
+```
+
+Con el qq plot vemos que lo que se separa de la recta es lo de la derecha, así que la cola de la derecha en la distribución no es la que tocaría (es decir, los valores grandes hacen que esto no corresponda con una Normal).
+
+#### • Determina la transformación de Box-Cox que mejoraría en mayor medida la Normalidad de la variable respuesta y. Ajuste de nuevo un nuevo modelo de regresión lineal sobre la nueva variable transformada ¿Observas una gran mejora en cuanto a la hipótesis de Normalidad que habías evaluado anteriormente?
+```{r vnLDSlDV}
+# transformacion box-cox
+library(EnvStats)
+bc<-boxcox(estimulos$y,lambda = c(-2,2),optimize=TRUE)
+# $lambda
+# [1] 0.7186076
+
+y.lambda<-(estimulos$y**bc$lambda-1)/bc$lambda
+#alternativa:
+# library(forecast)
+# y.lambdaa<-BoxCox(estimulos$y,lambda=bc$lambda)
+
+modelo.boxcox<-lm(y.lambda~estimulos$x)
+hist(y.lambda)
+
+
+plot(modelo.boxcox)
+  # normalidad:
+ks.test(x=rstudent(modelo.boxcox),y="pt",df=length(estimulos$x)-1-2)
+# obtenemos un p-valor de 0.07429, por lo que aceptamos la normalidad
+
+qqnorm(rstudent(modelo.boxcox)) # pero esto no parece normal :(
+qqline(rstudent(modelo.boxcox),col="blue")
+
+  # mejora un poquillo creo, pero no mucho (?)
+
+```
+
+
+#### • Un problema de la función EnvStats::boxcox es que busca la transformación de Box-Cox que mejora la Normalidad de la variable respuesta, y no la de los residuos del modelo. Vamos a intentar mejorar esta deficiencia: Desarrolla un procedimiento que para cada lambda=c(c(-20:-1),c(1:20))/10 ajuste el modelo lineal $y~\lambda_x$. Para cada uno de estos modelos calcula el test de Kolmogorov-Smirnov de sus residuos studentizados y determina el valor de $\lambda$, $\lambda$\*, que devuelve un p-valor mayor para dicho test. Por último, consideraremos como transformación de y el vector y~$\lambda$~ que acabamos de determinar. Evalua la hipótesis de Normalidad para el modelo y~$\lambda$\*~~x.
+
+Un problema de la función EnvStats::boxcox es que busca la transformación de Box-Cox que mejora la Normalidad de la variable respuesta, y no de los residuos del modelo.
+
+```{r czxVD}
+lambdas<-c(c(-20:-1),c(1:20))/10 #40 valores: de -2 a 2 de 0.1 en 0.1, excepto el 0
+
+#matriz donde cada columna son las y's (o sea, tiene 40 columnas)
+y.nueva<-matrix(nrow=length(estimulos$y),ncol=length(lambdas))
+for (i in 1:length(lambdas)) y.nueva[,i]<-(estimulos$y**lambdas[i]-1)/lambdas[i]
+
+modelo.ys<-list()
+for (i in 1:length(lambdas)) modelo.ys[[i]]<-lm(y.nueva[,i]~estimulos$x) #matriz con los 40 modelos
+
+#vector de 40 p-valores
+# hago el test de Kolmogorov-Smirnov de los residuos studentizados
+pvalores<-c()
+for (i in 1:length(lambdas)) pvalores[i]<-ks.test(x=rstudent(modelo.ys[[i]]),y="pt",df=length(estimulos$y)-1-2)$p.value
+
+lambdas[which.max(pvalores)] #el lambda que devulva el mayor p.valor: lambda=0.3; p.valor=0.5024; posición 23 del vector de 40
+
+modelo.final<-modelo.ys[[which.max(pvalores)]]
+
+  # normalidad modelo final:
+ks.test(x=rstudent(modelo.final),y="pt",df=length(estimulos$x)-1-2) # obtenemos un p-valor de 0.5024, por lo que aceptamos la normalidad
+
+qqnorm(rstudent(modelo.final)) # esto mas o menos, no?
+qqline(rstudent(modelo.final),col="blue")
+
+hist(y.nueva[,which.max(pvalores)])
+```
+
+Es decir: el lambda óptimo con box-cox hace que la variable sea Normal, pero lo que queremos es que LOS RESIDUOS sean Normales.
+
+Entonces, cojo distintos lambdas; hago las transformaciones boxcox; y elijo el lambda con el que se obtiene el p-valor máximo (haciendo el test de la normalidad de los residuos, kstest). y luego evalúo la normalidad del modelo final, con el lambda que he elegido.
+

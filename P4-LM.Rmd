@@ -1,0 +1,170 @@
+---
+title: "Práctica 4: Regresión lineal múltiple"
+author: "Zuri Montalar"
+date: "19/2/2020"
+output: html_document
+---
+
+<div style="text-align: justify">
+
+## Tarea 1
+
+#### Para el banco de datos Auto de la librería ISLR, considera ahora un modelo de regresión lineal múltiple sobre mpg empleando como covariables el resto de variables numéricas del banco de datos. Interpreta los resultados obtenidos: 
+
+```{r uno}
+library(ISLR)
+datos<-Auto
+
+modelo<-lm(mpg~cylinders+displacement+horsepower+weight+acceleration+year,data=datos)
+summary(modelo)
+```
+
+#### + ¿Qué variables tienen un efecto significativo sobre mpg?
+
+Tienen un efecto significativo las variables weight y year (y el intercepto)
+
+#### + ¿De qué forma influyen?
+
+Como el de *year* es 7.534e-01, cuanto más nuevo es el modelo (mayor valor en la variable *year*), mayor valor de la variable *mpg*, es decir, mayor es el *mpg*.
+
+Sin embargo, como el estimado de *weight* es de -6.795e-03, por lo que a menor peso del vehículo, mayor es el valor de *mpg*.
+
+Es decir: *mpg* es como la inversa del consumo. El peso disminuye las millas que puedes hacer por galón. El año, cuanto más moderno es, más puedes recorrer con un galón de gasolina.
+
+*mpg* es como la inversa del consumo. Entonces:
+O se que a mayor peso, menor mpg. A mayor peso, mayor consumo.
+Y a más nuevo, más mpg. A más nuevo, menor consumo.
+
+#### + Respecto al efecto de horsepower, que ya fue estudiado en la práctica anterior ¿Cómo cambia la interpretación del efecto de dicha variable del análisis anterior a éste?
+
+Ahora tenemos que *horsepower* no es significativo.
+
+Como cambia mpg cambiando horsepower, dejando constantes, fijas el resto de variables.
+Pierde la significatividad porque seguramente la que afectaba era otra variable.
+Ahora no es significativa porque igual horsepower estaba muy relacionada con otra variable que sí que era significativa; y ahora al meter esa variable al moedlo, sale que efectivamente es ella la significativa; y horsepower no.
+
+#### + ¿Cómo ha cambiado la variabilidad de su efecto?
+
+La variabilidad del efecto de *horsepower* es ahora 1.384e-02, y antes (en la práctica enterior) era 0.006446, por lo que ahora ha aumentado la variabilidad, así que ha aumentado la incertidumbre en la estimación de este efecto.
+
+Si horsepower fuera ortogonal a todas esas variables, incluso disminuiria la variabilidad, pero no es lo que ocurre aquí.
+
+
+## Tarea 2
+#### Volviendo al modelo que hayas ajustado en la tarea anterior, considera ahora ese mismo modelo eliminando aquellas variables que no tuvieran efecto significativo sobre mpg.
+
+```{r doss}
+modelo2<-lm(mpg~weight+year,data=datos)
+summary(modelo2)
+```
+
+#### + ¿Cómo varía la estimación y variabilidad de dichos efectos al eliminar el resto de variables del modelo?
+
+La estimación es bastante similar; la variabilidad ha aumentado un poco en ambos casos.
+
+#### + ¿A qué crees que se debe la distinta disminución en la varianza de las estimadores en este nuevo modelo?
+
+Porque puede ocurrir que haya habido algún tipo de correlación antes entre las que eran significativas y las que no.
+
+El año apenas aumenta su variabilidad (porque no habia variables colineales con esa). Sin embargo, para el peso, se multiplica (aumenta bastante más). Algunas variables son colinealies con el peso, así que al quitarlas, ahora el peso es mucho más significativo que antes.
+
+#### + ¿Consideras aconsejable considerar en el modelo la interacción de las variables que hubieras incluido en el modelo anterior? Interpreta el efecto de la interacción que hayas incluido sobre mpg.
+
+```{r dos}
+modelo2int<-lm(mpg~weight*year,data=datos)
+summary(modelo2int)
+
+```
+
+Nos sale todo significativo con la interacción. Ahora, cuando aumenta el peso, aumenta el *mpg*, pero ojo: en el año 70, el coeficiente del peso y año (?) es negativo. Cuanto va aumentando el año, se hace todavía más negativo. Es decir, todos los coeficientes serían negativos. Entonces, en el 70 el peso era menos significante que ahora, influía menos en *mpg* que en el 82 (los años de nuestra base de datos van entre 70 y 82). 
+
+
+Además, cuando el modelo es más nuevo (aumenta el año) también aumenta el *mpg*. Sin embargo, cuando aumentan ambos a la vez, es decir, cuando son modelos más nuevos con mayor peso, disminuye el *mpg* (es decir, aumenta el consumo).
+
+Modelo de regresión lineal con interacción:
+siendo los estimate en cofficients de (Intercept), weight, year y weight:year, respectivamente: beta0, beta1, beta2 y beta3. tenemos que:
+E(mpg)=beta0+beta1·peso+beta2·año+beta3·peso·año.
+
+Entonces, en principio, como beta1>0, al aumentar el peso, aumenta mpg (disminuye el consumo);
+como beta2>2, al aumentar el año, aumenta mpg (a coches más nuevos, menor consumo).
+PERO: como la interacción, beta3<0, cuando peso y año son elevados (es decir, coches nuevos que pesen más), menor será el mpg (mayor consumo); y si tengo coches viejos que pesen poco, el mpg no disminuye tanto, hay como un compromiso.
+
+
+## Tarea 3
+
+#### El archivo Nitrite.Rdata contiene datos sobre el consumo de nitritos de distintas plantas de alubias en función de la intensidad de la luz.
+
+```{r tres}
+#setwd("~/BIOESTADÍSTICA máster/Modelización estadística/Modelos lineales/Sesión 4")
+
+load("C:/Users/amont/Documents/BIOESTADÍSTICA máster/Modelización estadística/Modelos lineales/Sesión 4/Nitrite.Rdata")
+
+```
+
+#### + Representa la nube de puntos correspondiente a este banco de datos, ignora la variable día para el análisis estadístico.
+
+```{r rep3}
+plot(Nitrite$light,Nitrite$utilization)
+```
+
+
+#### + Ajusta la relación polinomial que consideres más adecuada para representar la relación entre el uso de nitritos e intensidad de la luz.
+```{r ajuste}
+summary(lm(utilization~light,data=Nitrite))
+
+#mod.N <- lm(utilization ~ I(utilization^2), data = Nitrite)
+mod2<-lm(utilization ~ poly(light,2, raw=T), data = Nitrite)
+summary(lm(utilization ~ poly(light,2, raw=T), data = Nitrite))
+
+mod3<-lm(utilization ~ poly(light,3, raw=T), data = Nitrite)
+summary(lm(utilization ~ poly(light,3, raw=T), data = Nitrite))
+
+mod4<-lm(utilization ~ poly(light,4, raw=T), data = Nitrite)
+summary(lm(utilization ~ poly(light,4, raw=T), data = Nitrite))
+
+mod5<-lm(utilization ~ poly(light,5, raw=T), data = Nitrite)
+summary(lm(utilization ~ poly(light,5, raw=T), data = Nitrite))
+
+```
+
+Con un polinomio cúbico parece que vamos a tener bien una relación, porque haciéndolo cuadrático (polinomio de orden 2) todo es significativo; con cúbico (oden 3) también es todo significativo. Pero con órdenes de 4, 5 y 6 ya sólo sale significativo el lineal, así que el mejor es el cúbico.
+
+El beta_0 es el de la luz; el beta_1 es el de la luz al cuadrado; el beta_2 es el de la luz al cubo.
+
+
+#### + Representa gráficamente la relación polinomial que te haya parecido oportuna, así como la relación correspondiente al resto de polinomios de orden menor que hayas ajustado para observar las diferencias que se producen entre los distintos ajustes.
+
+```{r repp}
+
+with(Nitrite, plot(light, utilization))
+pred2<-predict(mod2,newdata= data.frame(light=0:160))
+pred3<-predict(mod3,newdata= data.frame(light=0:160))
+pred4<-predict(mod4,newdata= data.frame(light=0:160))
+lines(x=0:160, y=pred2, col="red")
+lines(x=0:160, y=pred3, col="blue")
+lines(x=0:160, y=pred4, col="green")
+legend(50,10000,legend=c("cuadrático (2)","cúbico (3)",
+                         "de orden 4"),col=c("red","blue","green"),lty=c(1,1,1),cex=1)
+
+```
+
+
+#### + Para el modelo que consideres más adecuado, representa la relación ajustada entre nitritos e intensidad de luz, así como sus intervalos de confianza y predicción al 95%.
+
+Elegimos el modelo cúbico
+
+```{r rel}
+nuevosdatos<-data.frame(light=0:160)
+ic95<-data.frame(predict(mod3,newdata= nuevosdatos,interval="confidence"))
+prediccion<-data.frame(predict(mod3,newdata= nuevosdatos,interval="prediction"))
+
+with(Nitrite, plot(light, utilization))
+lines(x=nuevosdatos$light, y=pred3, col="blue")
+lines(x=nuevosdatos$light, y=ic95$lwr, col="red",lty=2)
+lines(x=nuevosdatos$light, y=ic95$upr, col="red",lty=2)
+lines(x=nuevosdatos$light, y=prediccion$lwr, col="green",lty=2)
+lines(x=nuevosdatos$light, y=prediccion$upr, col="green",lty=2)
+legend(50,10000,legend=c("Ajuste cúbico","Banda de confianza 95%",
+                         "Banda de predicción"),col=c("blue","red","green"),lty=c(1,2,2),cex=1)
+
+```

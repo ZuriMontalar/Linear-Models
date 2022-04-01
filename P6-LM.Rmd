@@ -1,0 +1,269 @@
+---
+title: "Práctica 6: Influencia y covariables categóricas"
+author: "Zuri Montalar"
+date: "26/2/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+<div style="text-align: justify">
+
+
+## Tarea 1
+#### Para el modelo que ajustaste en la Tarea 1 de la Práctica 4 (modelo de regresión lineal múltiple para mpg en función de todas las variables cuantitativas del banco de datos).
+
+```{r uno}
+library(ISLR)
+Auto<-Auto
+modelo<-lm(mpg~cylinders+displacement+horsepower+weight+acceleration+year,data=Auto)
+```
+
+Como hay muchas variables, es dificil ver cuales tienen un levelage alto.
+
+#### + ¿Observas algún outlier?
+
+```{r outlier1}
+# par(mfrow=c(2,3))
+# plot(Auto$cylinders,Auto$mpg)
+# plot(Auto$displacement,Auto$mpg)
+# plot(Auto$horsepower,Auto$mpg)
+# plot(Auto$weight,Auto$mpg)
+# plot(Auto$acceleration,Auto$mpg)
+# plot(Auto$year,Auto$mpg)
+
+plot(modelo)
+
+```
+
+
+#### + ¿Los valores más atípicos que observas tienen un mpg inferior o superior al que se esperaría de acuerdo con el modelo?
+
+En el último gráfico, vemos que el punto de 4, es outlier de la variable respuesta (lo serían todos los que sobrepasan tanto superior como inferiormente las 3 desviaiocnes típicas); el que pone como 14, tiene un leverage más elevado. Estos outliers, al estar por encima de las 3 desviaciones tipicas, corresponden a coche que tienen valores más elevados de los que cabría esperar.
+
+No tengo ningún punto fuera de la banda de la distancia de cook. Si viera alguno fuera de la banda, me plantearía si debería quitarlo (por ejemplo por error de tipeo) o ver qué hago, correr el modelo con y sin el punto, ver como cambia, a ver su interpretacion, etc.
+
+
+#### + ¿Observas la existencia de algún vehículo potencialmente influyente en el modelo de regresión ajustado?
+
+Muy muy influyente, ninguno. porque no tengo ningun punto mas allá de la distancia de Cook.
+
+
+#### + ¿Consideras que alguno de estos vehículos ha tenido particular impacto sobre la recta de regresión que has ajustado?
+
+Los que tienen una distancia de Cook grandes son los que tendrán un gran impacto.
+Es decir, el punto 14 es potencialmente influyente por tener un elevado leverage, pero no influye mucho realmetne porque está relativamente cerca de la recta de regersión.
+Además, los outliers que tengo no me influyen en verdad en la recta de regresión, porque tienen un leverage bajo.
+
+## Tarea 2
+#### Para el banco de datos Auto, considera el modelo que estimaras más adecuado de los que ajustaras en la práctica 4.
+
+Origin of car (1. American, 2. European, 3. Japanese)
+
+```{r tarea2}
+modelo2<-lm(mpg~weight+year,data=Auto)
+```
+
+
+#### + Incluye ahora en el modelo de regresión origin como variable categórica.
+
+(ojo cuidao al meter esta variable)
+```{r orig}
+
+Auto$origin<-factor(Auto$origin,labels=c("Americano","Europeo","Japonés"))
+Auto$origin<-as.factor(Auto$origin) #la convierto en factor
+
+Auto$origin<-relevel(Auto$origin,ref="Japonés") #indico que la referencia Japonés
+modelorig<-lm(mpg~weight+year+origin,data=Auto)
+summary(modelorig)
+
+```
+
+
+Cuando tenemos variables categórica con varias categorías, en función de la que coja como referencia, obtendremos unos u otros resultados.
+
+Con la función `anova` puedo comparar LA VARIABILIDAD RESIDUAL DE dos modelos.
+EL ANOVA me dice lo significativo que es, independientemente de la referencia que coja. Hacemos entonces anova con el modelo que tiene la variable categorica frente al modelo que no la tiene:
+
+```{r}
+modelorig<-lm(mpg~weight+year+origin,data=Auto)
+anova(modelorig,lm(mpg~weight+year,data=Auto)) #comparo el modelo con la variable origin con el modelo sin ella, para ver si esa variable es significativa (si los modelos tienen una variabilidad residual significativamente distinta, creo)
+
+```
+
+Tenemos un p-valor de 1.273e-05, así que sí que es significativo; así que la variable origin SÍ que me está explicando, me la quedo. (AQUÏ NO NOS PREGUNTAS ESTO, PERO VAMOS QUE SE HARÏA ASÏ)
+
+#### + ¿Consideras que hay diferencias significativas en cuanto a mpg entre los coches europeos y japoneses?
+
+Tengo como referencias Japonés. Como quiero comparar con Europeo, que es el 2, miro origin2. Veo que no es significativo.
+
+
+#### + Valora la presencia de interacción entre el origen de los vehículos y las variables que estuvieran ya anteriormente en el modelo. Interpreta los resultados obtenidos: 
+
+```{r origee}
+Auto$origin<-relevel(Auto$origin,ref="Americano") #indico que la referencia americano
+modeloAM<-lm(mpg~(weight+year)*origin,data=Auto)
+summary(modeloAM)
+
+# Auto$origin<-relevel(Auto$origin,ref="Europeo") #indico que la referencia europeo
+# modeloEU<-lm(mpg~(weight+year)*origin,data=Auto)
+# summary(modeloEU)
+# 
+# Auto$origin<-relevel(Auto$origin,ref="Japonés") #indico que la referencia Japonés
+# modeloJAP<-lm(mpg~(weight+year)*origin,data=Auto)
+# summary(modeloJAP)
+
+```
+
+mirando las dos lineas de peso y año, en cada uno de los tres origenes, vemos que todas las interacciones son significativas.
+
+
+#### ¿Qué región ha tenido una mejor evolución temporal en cuanto al consumo de sus coches?
+El año respecto a americano, el japones aumenta un poco; y el europeo aumenta un poco más. Asi que el que mejor evolucion temporal tiene en cuanto al consumo de los coches es Europa. (miro estos numeros: 3.513e-01 y 5.402e-01, que son japones y europeo respectivamente, y la referencia es america.)
+años:
+
+america: 6.421e-01
+europa:6.421e-01+5.402e-01= 1.1823
+japon:6.421e-01+3.513e-01=0.9934
+NO SÉ SI ESTO ES CORRECTO
+
+Es decir, el más grande en valor absoluto es Europa.
+
+
+#### ¿En que región el peso de los coches tiene un efecto más importante en el consumo?
+lo que busco es donde más distinto de 0 va a ser, es decir, donde dista mas en valor absoluto. en japon es donde mas influye el peso.
+miro por ejemplo la salida de america: del peso:
+
+america: -5.653e-03=-0.00565
+europa:-5.653e-03+-2.663e-03=-0.008316
+japon:-5.653e-03+-5.579e-03=-0.011232
+
+Es decir, en valor absoluto, el más grande (es decir, el más alejado de 0), es Japón
+
+
+#### + Sobre este último modelo que ajustado ¿Qué vehículos consideras que han podido tener más influencia sobre el ajuste de la recta de regresión?
+
+```{r hey}
+plot(modeloAM)
+# plot(modeloEU)
+# plot(modeloJAP)
+which.max(hatvalues(modeloAM)) #la posicion de la base de datos que me da el maximo leverage (la maxima influencia)
+```
+
+el que tienen mayor leverage es:
+```{r nada}
+Auto[which.max(hatvalues(modeloAM)),]
+```
+
+
+
+#### + Por último, sobre el último modelo que has ajustado, incluye también como variable explicativa tanto el número de cilindros de cada coche como su interacción con la región de procedencia del vehículo ¿Consideras que tanto el número de cilindros como su interacción con la región de fabricación tienen un efecto significativo en cuanto a la explicación de mpg?
+
+```{r adic}
+modelote<-lm(mpg~(weight+year+cylinders)*origin,data=Auto) #aqui la referencia es america
+summary(modelote)
+```
+
+Lo primero sería valorar si influye tanto la variable como su interaccion: para valorar la variable sola es sencillo porque miramos solo su p-valor. Pero para las interacciones, depende de la referencia, asi que lo miramos con un ANOVA:
+
+
+El número de cilindros sí es significativo (p-valor de 0.004971). veamos la interaccion:
+```{r}
+modelote<-lm(mpg~(weight+year+cylinders)*origin,data=Auto)
+anova(lm(mpg~(weight+year)*origin+cylinders,data=Auto),modelote)
+```
+
+p.valor de 0.01002, entonces es significativo el efecto de la interaccion de origin y cylinders, asi que la mantenemos en el modelo.
+
+
+## Tarea 3
+#### El banco de datos ISLR::Carseats contiene información sobre ventas de sillas para bebé en un conjunto de tiendas (puedes obtener información del banco de datos ejecutando ISLR::Carseats). Para este banco de datos:
+```{r tarea3}
+# library(ISLR)
+Carseats<-Carseats
+str(Carseats)
+```
+
+#### + Ajusta un modelo de regresión que prediga las ventas (Sales) en función del precio Price, si la tienda en cuestión corresponde a un area rural o urbana (Urban) y si la tienda se encuentra en Estados Unidos o no (US).
+
+```{r aj3}
+modeloSEATS<-lm(Carseats$Sales~Carseats$Price+Carseats$Urban+Carseats$US)
+summary(modeloSEATS)
+plot(modeloSEATS)
+```
+
+
+#### + Interpreta los resultados del modelo anterior, obtén intervalos de confianza para los coeficientes del modelo.
+
+De las tres variables, la única que no es significativa es si la tienda en cuestión corresponde a un area rural o urbana (Urban).
+
+```{r}
+confint(modeloSEATS) # intervalos de confianza de los coeficientes
+```
+
+#### + ¿Observas evidencia de outliers u observaciones influyentes en el modelo? ¿Qué observaciones consideras que condicionan en mayor medida el modelo de regresión que has calculado?
+
+No hay observaciones influyentes, la observación con mayor leverage lo tiene menor a 0.05.
+Tamopoco parece que haya outliers, pues todas las observaciones se encuantran dentro de la franja de las tres desviaciones típicas en valor absoluto. 
+
+Las observaciones que condicionan en mayor medida el modelo son las que vemos que en la última gráfica presentan un leverage mayor a 0.025 (?)
+
+la custion es que no hay ningun valor que este mas lejano que la distancia de Cook, asi que no hay observaciones influyentes.
+
+<!-- ```{r out.vi} -->
+<!-- Carseats[which.max(hatvalues(modeloSEATS)),] # observación con mayor leverage -->
+<!-- ``` -->
+
+
+#### + Valida las hipótesis del modelo de regresión que acabas de ajustar ¿darías por buenos los resultados del modelo?
+
+  - Normalidad:
+  
+```{r norm}
+  # df=2-p-2
+ks.test(x=rstudent(modeloSEATS),y="pt",df=length(Carseats$Sales)-1-2)
+```
+
+Obtenemos p-valor de 0.9937, por lo que comparando con nivel de significatividad
+de 0.05, no rechazamos la hipotesis nula; consideramos normalidad.
+
+Viendo el QQplot, que es el segundo grafico del plot del modelo, también parece seguir una Normal.
+
+  - Homocedasticidad: 
+```{r hom}
+plot(modeloSEATS$fitted.values,rstudent(modeloSEATS),main="Homocedasticidad")
+abline(0,0,col="red",lty=2)
+
+
+#install.packages("lawstat")
+# hago el test levene:
+grupos<-cut(modeloSEATS$fitted.values,quantile(modeloSEATS$fitted.values,(0:3)/3,include.lowest=TRUE))
+lawstat::levene.test(rstudent(modeloSEATS),grupos)
+ #CUANDO HAGAMOS UN CONTRASTE DE HIPOTESIS, COJEMOS SIEMPRE LOS STUDENTIZADOS PORQUE CONOCEMOS SU DISTRIBUCION
+
+```
+
+Parece homocedástico, si.
+
+Pero con el test Levene 
+ - con 3 grupo, p-valor de 0.0066 y rechazariamos H0: seria heterocedastico pero:
+ - con 4 grupos obtenemos p-valor de 0.3962, por lo que aceptamos la hipotesis nula de que sea homocedastico.
+
+  
+  - Linealidad:
+```{r lin}
+# lo que queremos ver es si hay o no tendencia
+plot(modeloSEATS$fitted.values,modeloSEATS$residuals,main="linealidad?")
+abline(0,0,col="red",lty=2)
+
+# lawstat::ltrend.test(rstudent(modeloSEATS),grupos) 
+```
+
+Vemos que no hay tendencia, y que los puntos se distribuyen alrededor de la línea y=0. Por lo que sí parece que haya linealidad.
+
+
+
+
+

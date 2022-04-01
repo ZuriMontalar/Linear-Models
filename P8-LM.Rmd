@@ -1,0 +1,200 @@
+---
+title: "Práctica 8: Modelos de regresión con un gran número de covariables (I)"
+author: "Zuri Montalar"
+date: "4/3/2020"
+output: html_document
+---
+
+<div style="text-align: justify">
+
+## Tarea 1
+#### Repite la selección de variables que llevaste a cabo en la práctica anterior en la Tarea 1 apartado 2, empleando ahora los distintos tipos de validación cruzada que hemos introducido. Valora las diferencias que obtienes entre las técnicas de validación cruzada y las utilizadas en la práctica anterior, así como las diferencias obtenidas para las propias técnicas de validación entre sí.
+
+Primero cargo los datos:
+
+```{r cargo1}
+library(leaps)
+library(ISLR)
+library(boot)
+library(pls)
+```
+
+```{r autoo}
+Auto<-Auto
+Auto$origin<-factor(Auto$origin,labels=c("Americano","Europeo","Japonés"))
+Auto$origin<-as.factor(Auto$origin)
+```
+
+
+Práctica 7, tarea 1, apartado 2:
+```{r tareanterior, eval=FALSE}
+# Exhaustivo:
+mod.optimo<-regsubsets(mpg~cylinders+I(1/displacement)+I(1/horsepower)+I(1/weight)+acceleration+year+origin,method="exhaustive",data=Auto,nvmax=8)
+sum.mod.optimo<-summary(mod.optimo)
+sum.mod.optimo
+
+c(which.max(sum.mod.optimo$adjr2),which.min(sum.mod.optimo$cp),which.min(sum.mod.optimo$bic))
+```
+
+Selección de variables usando los distintos tipos de validación cruzada:
+
+```{r cruzada}
+modelos<-regsubsets(mpg~cylinders+I(1/displacement)+I(1/horsepower)+I(1/weight)+acceleration+year+origin,data=Auto,nvmax=8)
+sum.modelos<-summary(modelos)
+sum.modelos
+
+```
+
+En la práctica anterior concluímos que elegiría el modelo con 6 variables: I(1/horsepower),I(1/weight), acceleration, year, originEuropeo, originJaponés.
+
+miramos con 3,6 y 7.
+
+```{r vals}
+# kcross
+which(sum.modelos$which[1,])
+lm1<-glm(mpg~I(1/weight),data=Auto)
+
+
+which(sum.modelos$which[2,])
+lm2<-glm(mpg~I(1/weight)+year,data=Auto)
+
+which(sum.modelos$which[3,])
+lm3<-glm(mpg~I(1/horsepower)+I(1/weight)+year,data=Auto)
+
+which(sum.modelos$which[4,])
+lm4<-glm(mpg~I(1/horsepower)+I(1/weight)+acceleration+year,data=Auto)
+
+which(sum.modelos$which[5,])
+lm5<-glm(mpg~I(1/horsepower)+I(1/weight)+year+origin,data=Auto)
+
+which(sum.modelos$which[6,])
+lm6<-glm(mpg~I(1/horsepower)+I(1/weight)+acceleration+year+origin,data=Auto)
+
+which(sum.modelos$which[7,])
+lm7<-glm(mpg~cylinders+I(1/horsepower)+I(1/weight)+acceleration+year+origin,data=Auto)
+
+lm8<-glm(mpg~cylinders++I(1/displacement)+I(1/horsepower)+I(1/weight)+acceleration+year+origin,data=Auto)
+
+
+
+#con k=2
+mimatriz2<-matrix(nrow=100,ncol=7)
+for(i in 1:100){
+mimatriz2[i,]<-c(cv.glm(Auto,lm2,K=2)$delta[2],cv.glm(Auto,lm3,K=2)$delta[2],cv.glm(Auto,lm4,K=2)$delta[2],cv.glm(Auto,lm5,K=2)$delta[2],cv.glm(Auto,lm6,K=2)$delta[2],cv.glm(Auto,lm7,K=2)$delta[2],cv.glm(Auto,lm8,K=2)$delta[2])
+}
+apply(mimatriz2,2,mean) 
+apply(mimatriz2,2,sd)
+
+
+#con k=10
+mimatriz10<-matrix(nrow=100,ncol=7)
+for(i in 1:100){
+mimatriz10[i,]<-c(cv.glm(Auto,lm2,K=10)$delta[2],cv.glm(Auto,lm3,K=10)$delta[2],cv.glm(Auto,lm4,K=10)$delta[2],cv.glm(Auto,lm5,K=10)$delta[2],cv.glm(Auto,lm6,K=10)$delta[2],cv.glm(Auto,lm7,K=10)$delta[2],cv.glm(Auto,lm8,K=10)$delta[2])
+}
+apply(mimatriz10,2,mean) 
+apply(mimatriz10,2,sd)
+
+```
+
+
+obtengo que el mejor es el que se queda con 6 variables (tiene menor mendia del entre todos los errores cuadricos medios ajustados)
+
+
+## Tarea 2
+#### El banco de datos College de la librería ISLR contiene datos (18 variables) de 777 universidades americanas. En concreto, estamos interesados en explicar el número de solicitudes de matriculación recibidas por estas universidades (Apps) como función del resto de variables del banco de datos.
+
+Primero cargo los datos:
+
+```{r cargo2}
+library(ISLR)
+College<-College
+str(College)
+# plot(College)
+```
+
+#### + Divide la muestra en dos partes: un grupo train de 500 universidades y un grupo test con el resto.
+
+```{r traintest}
+train<-College[1:500,]
+test<-College[-(1:500),]
+```
+
+
+#### + Ajusta un modelo PCR, sobre el grupo train, eligiendo el número óptimo de covariables en el modelo mediante validación cruzada.
+
+```{r ajustePCR}
+modelo.pcr<-pcr(Apps ~ .,data=train,validation="LOO",ncomp=17)
+modelo.pcr.cv<-MSEP(modelo.pcr,estimate="CV")
+cuantos.pcr<-which.min(modelo.pcr.cv$val)-1
+cuantos.pcr
+
+MSEP(modelo.pcr, estimate = "train", ncomp = cuantos.pcr )
+MSEP(modelo.pcr, estimate = "test", ncomp = cuantos.pcr, newdata = test)
+
+```
+
+Nos sale que deberiamos coger 16 de las variables (en total hay 17) 
+PERO
+MSEP con train: 1013538  
+MSEP con test: 1290144
+Como la diferencia enter ellos es muy grande, esto nos indica que hay mucho sobreajuste.
+
+
+#### + Ajusta un modelo PLS, sobre el grupo train, eligiendo el número de covariables en el modelo mediante validación cruzada.
+
+```{r PLS}
+modelo.pls <- plsr(Apps ~ ., data = train, validation = "LOO", ncomp=17)
+modelo.pls.cv <- MSEP(modelo.pls, estimate = "CV")
+cuantos.pls <- which.min(modelo.pls.cv$val)-1
+cuantos.pls
+
+MSEP(modelo.pls, estimate = "train", ncomp = cuantos.pls)
+MSEP(modelo.pls, estimate = "test", ncomp = cuantos.pls, newdata = test)
+```
+
+Nos sale que deberiamos coger 14 de las componentes principales (en total hay 17) 
+PERO
+MSEP con train: 1014752    
+MSEP con test: 1289233 
+como la diferencia enter ellos es muy grande, esto nos indica que hay mucho sobreajuste. Nos sale bastante similar ahora con PLS que antes con PCR.
+
+
+#### + Utiliza el grupo test para comparar ambos ajustes ¿por qué modelo te decidirías finalmente? ¿observas evidencia de sobreajuste para el modelo óptimo que hayas elegido para PCR o PLS?
+
+Los métodos de reducción de variables me están diciendo que prácticamente todas las variables son importantes.
+
+La raiz cuadrada de eso es alrededor de 1000, que tiene sentido porque estamos hablando de solicitudes de universidades.
+
+Vemos que hay sobreajuste porque de uno es alrededor del 30% más que el otro (mirando los MSEP).
+
+Para elegir, nos tenemos que fijar en como actúa esto en nuevos datos (es decir, en el grupo test), entonces, cogería el de PLS con 14 de las componentes principales, que , aunque por los pelos, tiene un MSEP menor.
+
+#### + Por último, vamos a comparar, para el grupo test, el ajuste de los mejores modelos PCR y PLS obtenidos con el mejor modelo según el procedimiento “best subset selection”.Para ello determina el modelo con mejor ajuste para el grupo train con el procedimiento “best subset selection”. Utiliza Cp por ejemplo como criterio de comparación entre modelos de distintas dimensiones. Una vez calculado dicho modelo compara el MSE predictivo para el grupo test para este modelo y los mejores modelos PCR y PLS que hubieras determinado ¿Qué modelo te parece mejor opción atendiendo a estos resultados?
+
+```{r best}
+modeloALL<-regsubsets(Apps~.,data=train,nvmax=18)
+sum.ALL<-summary(modeloALL)
+sum.ALL
+which.min(sum.ALL$cp) #11
+
+which(sum.ALL$which[11,])
+lm11<-lm(Apps~Private+Accept+Enroll+Top10perc+Top25perc+F.Undergrad+Outstate+Room.Board+Terminal+Expend+Grad.Rate,data=train)
+
+#Mean square error para el grupo train
+#mean((lm11$fitted.values-train$Apps)^2)
+
+#Mean square error para el grupo test
+predicciones <- predict(lm11, newdata = test)
+mean((predicciones - test$Apps)^2)
+
+```
+
+
+  - ajustando el modelo con 11 variables (variables originales) con train, y prediciendo con el grupo test, veo que el error es: 1264396
+
+antes ponia otras variables, procedentes de las componentes principales, con pls y pcr; y tenia que los errores eran:
+
+  - MSEP con test con PLS: 1289233 
+  - MSEP con test con PCR : 1290144
+
+Entonces, tenemos que el error cuadratico medio (ajustado) es menor con este nuevo modelo, considerando 11 de las 18 variables originales.
